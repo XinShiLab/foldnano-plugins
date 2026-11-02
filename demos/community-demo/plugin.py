@@ -9,7 +9,7 @@ from foldnano import PluginContext, parse_foldnano_json
 
 
 def run(ctx: PluginContext) -> None:
-    ctx.log("Installed from the Foldnano community listing.")
+    ctx.log("Community Demo 1.0.1, installed from the Foldnano community listing.")
     try:
         part = parse_foldnano_json(ctx.get_part_as_foldnano_json())
     except RuntimeError as exc:
