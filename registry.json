@@ -1,0 +1,35 @@
+{
+	"$schema": "./schema/registry-v1.schema.json",
+	"registryVersion": 1,
+	"plugins": [
+		{
+			"id": "pyOrigamiBreak",
+			"version": "1.0.5",
+			"name": "pyOrigamiBreak — Staple Auto-Break",
+			"description": "Optimises staple break positions using thermodynamic (dG) scoring.",
+			"tags": [
+				"caDNAno"
+			],
+			"authors": [
+				{
+					"name": "Douglas Lab",
+					"url": "https://bionano.ucsf.edu/"
+				}
+			],
+			"maintainers": [
+				{
+					"name": "Xin Shi"
+				}
+			],
+			"license": "MIT",
+			"repository": "https://github.com/xinshi-kul/pyOrigamiBreak_mini",
+			"upstream": "https://github.com/douglaslab/pyOrigamiBreak",
+			"zip": {
+				"url": "https://xinshilab.github.io/foldnano-plugins/plugins/pyOrigamiBreak/1.0.5/pyOrigamiBreak-1.0.5.zip",
+				"sha256": "75bbf92dba49d6296bcb7311459043f94570e1e6de11a2f66e3d61f820b67b2d",
+				"fetch": "direct"
+			},
+			"listed": "2026-11-02"
+		}
+	]
+}

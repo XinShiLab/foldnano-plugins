@@ -1,0 +1,260 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Foldnano plugin manifest, schema version 2",
+	"description": "Shape of a Foldnano plugin manifest (fplugin.json / *.fplugin.json) at schemaVersion 2 (adds \"icon\", \"citations\", \"tags\" and the credit fields \"authors\", \"maintainers\", \"license\", \"repository\" and \"upstream\"; otherwise the same as version 1). Checks structure, types and the format/applyStrategy pairing. Foldnano validates more on install (allowed entrypoint and wheel origins, parameters vs side panel forms, field defaults and ranges), so a manifest can pass this schema and still be refused. Field reference: the Foldnano plugin development guide.",
+	"type": "object",
+	"required": ["schemaVersion", "id", "name", "version", "format", "applyStrategy"],
+	"properties": {
+		"$schema": {
+			"type": "string",
+			"description": "Optional reference to this schema, for editor support. Ignored by Foldnano."
+		},
+		"schemaVersion": {
+			"const": 2,
+			"description": "Manifest schema version. Required at version 2: a manifest without it is read as 1. Not the plugin's own version."
+		},
+		"id": {
+			"type": "string",
+			"pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$",
+			"description": "Unique plugin identifier: a letter, then letters, digits, '.', '_' or '-' (at most 64), e.g. \"my-plugin\". Checked at install."
+		},
+		"name": { "type": "string", "minLength": 1, "description": "Display name." },
+		"version": {
+			"type": "string",
+			"pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+			"description": "The plugin's own version, as a semantic version (e.g. \"1.2.0\"). Bump it whenever plugin files change: Foldnano caches files by this value. Checked at install."
+		},
+		"format": {
+			"enum": ["cadnano_json", "foldnano_json", "foldnano_edit", "foldnano_mini"],
+			"description": "Input/output format the plugin uses. foldnano_mini is the old name of foldnano_edit."
+		},
+		"applyStrategy": {
+			"enum": [
+				"previewOnly",
+				"replaceRegion",
+				"replaceRegionKeepAnnotationsWhereMatched",
+				"replacePart",
+				"replacePartKeepAnnotationsWhereMatched",
+				"replayMutationLog",
+				"replayMutationLogInRegion"
+			],
+			"description": "How Foldnano applies the result. Must match format."
+		},
+		"entrypoint": {
+			"type": "string",
+			"description": "Placeholder inline source; only for sidePanel.codeEditor plugins with execution \"entrypoint\"."
+		},
+		"entrypointUrl": {
+			"type": "string",
+			"description": "URL of the plugin .zip bundle. May be omitted in the manifest inside the zip."
+		},
+		"requirements": {
+			"type": "array",
+			"items": { "type": "string", "minLength": 1 },
+			"description": "Packages installed at activation: Pyodide/PyPI names, bundled wheel filenames, or wheel URLs."
+		},
+		"network": {
+			"type": "array",
+			"items": {
+				"type": "string",
+				"pattern": "^(\\*|(\\*\\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?)$"
+			},
+			"if": { "contains": { "const": "*" } },
+			"then": { "maxItems": 1 },
+			"description": "Hosts the plugin may contact (lowercase host names, optional *. prefix or :port; fully qualified except localhost/127.0.0.1), or [\"*\"] alone for any HTTPS host. Omitted or empty: no network."
+		},
+		"description": { "type": "string", "description": "Human-readable description." },
+		"icon": {
+			"type": "string",
+			"pattern": "^(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\\.svg$",
+			"description": "Path of an SVG icon inside the plugin zip, e.g. \"icon.svg\". At most 32 KB, with a viewBox; no scripts, event handlers or links to other files. Drawn in one colour that follows the app theme. Overrides sidePanel.icon."
+		},
+		"citations": {
+			"type": "array",
+			"maxItems": 10,
+			"items": {
+				"type": "object",
+				"required": ["text"],
+				"properties": {
+					"text": {
+						"type": "string",
+						"pattern": "\\S",
+						"maxLength": 500,
+						"description": "Formatted reference, shown as plain text."
+					},
+					"doi": {
+						"type": "string",
+						"pattern": "^10\\.\\d{4,9}\\/\\S+$",
+						"description": "Bare DOI, e.g. \"10.1073/pnas.2406769121\", without https://doi.org/."
+					},
+					"url": {
+						"type": "string",
+						"pattern": "^https:\\/\\/[^\\s/]\\S*$",
+						"description": "HTTPS link, for work without a DOI."
+					}
+				},
+				"not": { "required": ["doi", "url"] },
+				"additionalProperties": false
+			},
+			"description": "References you ask users to cite when they use the plugin in their work."
+		},
+		"tags": {
+			"type": "array",
+			"maxItems": 10,
+			"uniqueItems": true,
+			"items": { "type": "string", "pattern": "^(?=.{1,32}$)[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$" },
+			"description": "Labels that describe the plugin, e.g. [\"auto-staple\", \"export\"]: letters and digits, words joined by hyphens, at most 32 characters each. Repeats are refused ignoring case."
+		},
+		"authors": {
+			"type": "array",
+			"maxItems": 10,
+			"items": { "$ref": "#/$defs/person" },
+			"description": "Who wrote the original work."
+		},
+		"maintainers": {
+			"type": "array",
+			"maxItems": 10,
+			"items": { "$ref": "#/$defs/person" },
+			"description": "Who made it a Foldnano plugin and keeps it updated. Omit when the authors maintain it."
+		},
+		"license": {
+			"type": "string",
+			"pattern": "^(?=.{1,100}$)[A-Za-z0-9.+()-]+(?: [A-Za-z0-9.+()-]+)*$",
+			"description": "SPDX license id or expression of the plugin as shipped, e.g. \"MIT\" or \"MIT AND BSD-3-Clause\"."
+		},
+		"repository": {
+			"type": "string",
+			"pattern": "^https:\\/\\/[^\\s/]\\S*$",
+			"description": "HTTPS URL of the plugin's own source repository."
+		},
+		"upstream": {
+			"type": "string",
+			"pattern": "^https:\\/\\/[^\\s/]\\S*$",
+			"description": "HTTPS URL of the original project, when the plugin is a fork."
+		},
+		"parameters": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/field" },
+			"description": "Inputs shown in a dialog before each run."
+		},
+		"sidePanel": { "$ref": "#/$defs/sidePanel" }
+	},
+	"patternProperties": {
+		"^x-": { "description": "Author-owned metadata. Ignored by Foldnano." }
+	},
+	"additionalProperties": false,
+	"allOf": [
+		{
+			"if": { "properties": { "format": { "const": "cadnano_json" } } },
+			"then": {
+				"properties": {
+					"applyStrategy": {
+						"enum": ["previewOnly", "replaceRegion", "replaceRegionKeepAnnotationsWhereMatched"]
+					}
+				}
+			}
+		},
+		{
+			"if": { "properties": { "format": { "const": "foldnano_json" } } },
+			"then": {
+				"properties": {
+					"applyStrategy": {
+						"enum": ["previewOnly", "replacePart", "replacePartKeepAnnotationsWhereMatched"]
+					}
+				}
+			}
+		},
+		{
+			"if": { "properties": { "format": { "enum": ["foldnano_edit", "foldnano_mini"] } } },
+			"then": {
+				"properties": {
+					"applyStrategy": {
+						"enum": ["previewOnly", "replayMutationLog", "replayMutationLogInRegion"]
+					}
+				}
+			}
+		},
+		{ "not": { "required": ["entrypoint", "entrypointUrl"] } }
+	],
+	"$defs": {
+		"person": {
+			"type": "object",
+			"required": ["name"],
+			"properties": {
+				"name": { "type": "string", "pattern": "\\S", "maxLength": 100 },
+				"url": {
+					"type": "string",
+					"pattern": "^https:\\/\\/[^\\s/]\\S*$",
+					"description": "HTTPS link, e.g. a profile or lab page."
+				}
+			},
+			"additionalProperties": false
+		},
+		"field": {
+			"type": "object",
+			"required": ["id", "label", "type"],
+			"properties": {
+				"id": { "type": "string", "minLength": 1, "description": "Key the plugin receives." },
+				"label": { "type": "string" },
+				"type": { "enum": ["string", "number", "boolean", "select"] },
+				"default": { "type": ["string", "number", "boolean"] },
+				"description": { "type": "string" },
+				"required": { "type": "boolean" },
+				"min": { "type": "number" },
+				"max": { "type": "number" },
+				"step": { "type": "number", "exclusiveMinimum": 0 },
+				"options": {
+					"type": "array",
+					"minItems": 1,
+					"items": {
+						"oneOf": [
+							{ "type": "string", "minLength": 1 },
+							{
+								"type": "object",
+								"required": ["value", "label"],
+								"properties": {
+									"value": { "type": "string", "minLength": 1 },
+									"label": { "type": "string", "minLength": 1 }
+								},
+								"additionalProperties": false
+							}
+						]
+					}
+				}
+			},
+			"additionalProperties": false
+		},
+		"sidePanel": {
+			"type": "object",
+			"required": ["type"],
+			"properties": {
+				"type": { "enum": ["form", "codeEditor"] },
+				"title": { "type": "string" },
+				"icon": {
+					"enum": ["form", "code", "analysis"],
+					"deprecated": true,
+					"description": "Deprecated: use the top-level \"icon\". Still used when that is absent."
+				},
+				"form": {
+					"type": "object",
+					"required": ["fields"],
+					"properties": {
+						"fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/field" } },
+						"submitLabel": { "type": "string" }
+					},
+					"additionalProperties": false
+				},
+				"codeEditor": {
+					"type": "object",
+					"properties": {
+						"filename": { "type": "string" },
+						"initialCode": { "type": "string" },
+						"execution": { "enum": ["input", "entrypoint"] }
+					},
+					"additionalProperties": false
+				}
+			},
+			"additionalProperties": false
+		}
+	}
+}
