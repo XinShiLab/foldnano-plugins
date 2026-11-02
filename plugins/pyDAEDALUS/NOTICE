@@ -1,0 +1,8 @@
+pyDAEDALUS (Foldnano plugin)
+
+This plugin is adapted from pyDAEDALUS by the Bathe BioNanoLab, MIT (GPL-2.0-or-later, see
+LICENSE). The zips in this folder are unmodified releases of the plugin, hosted with the authors'
+agreement. Each zip's own NOTICE lists the changes from the original.
+
+Upstream:    https://github.com/lcbb/pyDAEDALUS
+Plugin fork: https://github.com/xinshi-kul/pyDAEDALUS-foldnano (source of every hosted version)
