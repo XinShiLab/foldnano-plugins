@@ -123,26 +123,18 @@
 					"type": "object",
 					"required": [
 						"url",
-						"sha256",
-						"fetch"
+						"sha256"
 					],
 					"properties": {
 						"url": {
 							"type": "string",
 							"pattern": "^https:\\/\\/[^\\s/]\\S*$",
-							"description": "Where the zip is downloaded from: the author's host, or a hosted copy in this repo."
+							"description": "Where Foldnano downloads the zip: this repo's hosted copy on GitHub Pages, at plugins/<id>/<version>/<id>-<version>.zip."
 						},
 						"sha256": {
 							"type": "string",
 							"pattern": "^[0-9a-f]{64}$",
 							"description": "SHA-256 of the exact zip, lowercase hex. Foldnano refuses a download that doesn't match."
-						},
-						"fetch": {
-							"enum": [
-								"direct",
-								"manual"
-							],
-							"description": "direct: Foldnano downloads url itself (the host must send Access-Control-Allow-Origin). manual: the user downloads url and drops the zip into Foldnano."
 						}
 					},
 					"additionalProperties": false

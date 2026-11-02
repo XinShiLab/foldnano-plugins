@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
   schedule:
-    # Weekly, to catch dead links and files replaced at a listed URL.
+    # Weekly, with --live: confirms Pages still serves every listed zip, unchanged, with CORS.
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
@@ -23,3 +23,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+      - run: npm run check -- --live
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

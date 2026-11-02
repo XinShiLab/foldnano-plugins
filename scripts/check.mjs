@@ -1,12 +1,13 @@
-// Checks every registry.json entry against the zip it points to.
+// Checks every registry.json entry against the hosted zip it points to.
 //
-//   node scripts/check.mjs [--skip-remote]
+//   node scripts/check.mjs [--live]
 //
-// Per entry: the listing matches its schema; the zip downloads (hosted copies are read from this
-// checkout, so a PR can check a zip Pages doesn't serve yet), matches zip.sha256, holds a valid
-// fplugin.json at schemaVersion 2 whose display and credit fields equal the entry's, and an icon
-// equal to iconSvg; and zip.fetch matches whether the browser may fetch zip.url directly.
-// Nothing downloaded is kept.
+// Per entry: the listing matches its schema; zip.url is this repo's Pages path for the entry's id
+// and version, and the file is in this checkout (so a PR can check a zip Pages doesn't serve yet);
+// it matches zip.sha256 and holds a valid fplugin.json at schemaVersion 2 whose display and credit
+// fields equal the entry's, and an icon equal to iconSvg.
+// --live also downloads zip.url from Pages and checks it serves the same bytes with
+// Access-Control-Allow-Origin, which Foldnano needs to fetch it from the browser.
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -18,7 +19,7 @@ import { DEFAULT_PAGES_BASE, ENTRY_MANIFEST_FIELDS, MAX_ZIP_BYTES } from './shar
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pagesBase = process.env.PAGES_BASE ?? DEFAULT_PAGES_BASE;
-const skipRemote = process.argv.includes('--skip-remote');
+const live = process.argv.includes('--live');
 const ORIGIN = 'https://foldnano.example';
 
 const readJson = (rel) => JSON.parse(readFileSync(join(root, rel), 'utf8'));
@@ -27,41 +28,23 @@ const validateRegistry = ajv.compile(readJson('schema/registry-v1.schema.json'))
 const validateManifest = ajv.compile(readJson('schema/fplugin-v2.schema.json'));
 
 const errors = [];
-const warnings = [];
 const fail = (id, msg) => errors.push(`${id}: ${msg}`);
-const warn = (id, msg) => warnings.push(`${id}: ${msg}`);
+const sha256Of = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-/** Follows redirects by hand so every hop's Access-Control-Allow-Origin can be checked. */
-async function fetchRemote(url) {
-	let current = url;
-	let corsOnEveryHop = true;
-	for (let hop = 0; hop < 10; hop++) {
-		const res = await fetch(current, { redirect: 'manual', headers: { Origin: ORIGIN } });
-		const acao = res.headers.get('access-control-allow-origin');
-		if (acao !== '*' && acao !== ORIGIN) corsOnEveryHop = false;
-		if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-			current = new URL(res.headers.get('location'), current).href;
-			continue;
-		}
-		if (!res.ok) throw new Error(`HTTP ${res.status} from ${current}`);
-		const length = Number(res.headers.get('content-length') ?? 0);
-		if (length > MAX_ZIP_BYTES) throw new Error(`zip is ${length} bytes, over the limit`);
-		const bytes = new Uint8Array(await res.arrayBuffer());
-		if (bytes.byteLength > MAX_ZIP_BYTES) throw new Error('zip is over the size limit');
-		return { bytes, corsOnEveryHop };
-	}
-	throw new Error('too many redirects');
+function hostedPath(entry) {
+	return `plugins/${entry.id}/${entry.version}/${entry.id}-${entry.version}.zip`;
 }
 
-async function getZip(entry) {
-	if (entry.zip.url.startsWith(pagesBase)) {
-		const local = join(root, decodeURI(entry.zip.url.slice(pagesBase.length)));
-		if (!existsSync(local)) throw new Error(`hosted zip missing from this repo: ${local}`);
-		// GitHub Pages sends Access-Control-Allow-Origin: * for every file.
-		return { bytes: new Uint8Array(readFileSync(local)), corsOnEveryHop: true, hosted: true };
-	}
-	if (skipRemote) return null;
-	return { ...(await fetchRemote(entry.zip.url)), hosted: false };
+async function checkLive(entry) {
+	const res = await fetch(entry.zip.url, { headers: { Origin: ORIGIN } });
+	if (!res.ok) return fail(entry.id, `live: HTTP ${res.status} from ${entry.zip.url}`);
+	const acao = res.headers.get('access-control-allow-origin');
+	if (acao !== '*' && acao !== ORIGIN)
+		fail(entry.id, 'live: Pages did not send Access-Control-Allow-Origin');
+	const bytes = new Uint8Array(await res.arrayBuffer());
+	if (bytes.byteLength > MAX_ZIP_BYTES) return fail(entry.id, 'live: zip is over the size limit');
+	if (sha256Of(bytes) !== entry.zip.sha256)
+		fail(entry.id, 'live: Pages serves different bytes than the listing pins');
 }
 
 function checkManifest(entry, files) {
@@ -93,27 +76,30 @@ function checkManifest(entry, files) {
 }
 
 async function checkEntry(entry) {
-	let got;
-	try {
-		got = await getZip(entry);
-	} catch (e) {
-		return fail(entry.id, `download failed: ${e.message}`);
-	}
-	if (!got) return warn(entry.id, 'skipped (remote URL, --skip-remote)');
-	if (entry.zip.fetch === 'direct' && !got.corsOnEveryHop)
-		fail(entry.id, 'fetch is "direct" but the host does not send Access-Control-Allow-Origin; use "manual"');
-	if (entry.zip.fetch === 'manual' && got.corsOnEveryHop)
-		warn(entry.id, 'fetch is "manual" but the host allows direct download');
-	const sha256 = createHash('sha256').update(got.bytes).digest('hex');
+	const rel = hostedPath(entry);
+	if (entry.zip.url !== new URL(rel, pagesBase).href)
+		return fail(entry.id, `zip.url must be ${new URL(rel, pagesBase).href}`);
+	const local = join(root, rel);
+	if (!existsSync(local)) return fail(entry.id, `hosted zip missing from this repo: ${rel}`);
+	const bytes = new Uint8Array(readFileSync(local));
+	if (bytes.byteLength > MAX_ZIP_BYTES) return fail(entry.id, 'zip is over the size limit');
+	const sha256 = sha256Of(bytes);
 	if (sha256 !== entry.zip.sha256)
 		return fail(entry.id, `sha256 is ${sha256}, listing says ${entry.zip.sha256}`);
 	let files;
 	try {
-		files = unzipSync(got.bytes);
+		files = unzipSync(bytes);
 	} catch (e) {
 		return fail(entry.id, `not a valid zip (${e.message})`);
 	}
 	checkManifest(entry, files);
+	if (live) {
+		try {
+			await checkLive(entry);
+		} catch (e) {
+			fail(entry.id, `live: download failed (${e.message})`);
+		}
+	}
 }
 
 const registry = readJson('registry.json');
@@ -128,10 +114,9 @@ for (const entry of registry.plugins) {
 	await checkEntry(entry);
 }
 
-for (const w of warnings) console.warn(`warning  ${w}`);
 for (const e of errors) console.error(`error    ${e}`);
 console.log(
 	`${registry.plugins.length} entr${registry.plugins.length === 1 ? 'y' : 'ies'}: ` +
-		`${errors.length} error(s), ${warnings.length} warning(s)`
+		`${errors.length} error(s)`
 );
 process.exit(errors.length > 0 ? 1 : 0);

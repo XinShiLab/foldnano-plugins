@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 2,
+	"id": "community-demo",
+	"name": "Community Demo",
+	"version": "1.0.0",
+	"description": "A minimal community plugin: shows the install path from the Foldnano plugins listing, and counts the oligos in the open design.",
+	"tags": [
+		"Demo"
+	],
+	"authors": [
+		{
+			"name": "Xin Shi"
+		}
+	],
+	"license": "MIT",
+	"repository": "https://github.com/XinShiLab/foldnano-plugins",
+	"format": "foldnano_json",
+	"applyStrategy": "previewOnly",
+	"icon": "icon.svg"
+}

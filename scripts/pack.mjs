@@ -1,13 +1,12 @@
 // Builds a plugin zip reproducibly and prints its registry.json entry.
 //
-//   node scripts/pack.mjs <plugin-folder> [--manifest <fplugin.json>] [--host] [--base <url>]
+//   node scripts/pack.mjs <plugin-folder> [--manifest <fplugin.json>] [--base <url>]
 //
 // The zip holds the folder's files plus the manifest as fplugin.json, without entrypointUrl (a
 // listed zip is found through the listing, never through its own manifest). Entries are sorted
 // and timestamped 1980-01-01, so the same files always give the same SHA-256.
 //
-// --host writes plugins/<id>/<version>/<id>-<version>.zip and points zip.url at this repo's
-// Pages site; without it the zip goes to dist/ and you fill in zip.url yourself.
+// Writes plugins/<id>/<version>/<id>-<version>.zip and points zip.url at this repo's Pages site.
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -23,16 +22,15 @@ const EXCLUDE = /(^|\/)(__pycache__|\.[^/]*)(\/|$)|\.zip$|\.pyc$/;
 const FIXED_MTIME = new Date(1980, 0, 1);
 
 function parseArgs(argv) {
-	const args = { dir: null, manifest: null, host: false, base: DEFAULT_PAGES_BASE };
+	const args = { dir: null, manifest: null, base: DEFAULT_PAGES_BASE };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--manifest') args.manifest = argv[++i];
-		else if (a === '--host') args.host = true;
 		else if (a === '--base') args.base = argv[++i];
 		else if (!args.dir) args.dir = a;
 		else throw new Error(`Unexpected argument ${a}`);
 	}
-	if (!args.dir) throw new Error('Usage: pack.mjs <plugin-folder> [--manifest <path>] [--host]');
+	if (!args.dir) throw new Error('Usage: pack.mjs <plugin-folder> [--manifest <path>]');
 	return args;
 }
 
@@ -65,9 +63,9 @@ if (zip.byteLength > MAX_ZIP_BYTES) throw new Error(`Zip is ${zip.byteLength} by
 const sha256 = createHash('sha256').update(zip).digest('hex');
 
 const name = `${manifest.id}-${manifest.version}.zip`;
-const relPath = args.host ? `plugins/${manifest.id}/${manifest.version}/${name}` : `dist/${name}`;
+const relPath = `plugins/${manifest.id}/${manifest.version}/${name}`;
 const outPath = join(root, relPath);
-if (args.host && existsSync(outPath)) {
+if (existsSync(outPath)) {
 	const existing = createHash('sha256').update(readFileSync(outPath)).digest('hex');
 	if (existing !== sha256)
 		throw new Error(`${relPath} exists with different contents; hosted versions are never replaced`);
@@ -78,11 +76,7 @@ writeFileSync(outPath, zip);
 const entry = {};
 for (const field of ENTRY_MANIFEST_FIELDS) if (manifest[field] !== undefined) entry[field] = manifest[field];
 if (manifest.icon) entry.iconSvg = new TextDecoder().decode(files[manifest.icon]);
-entry.zip = {
-	url: args.host ? new URL(relPath, args.base).href : 'https://…',
-	sha256,
-	fetch: args.host ? 'direct' : 'manual',
-};
+entry.zip = { url: new URL(relPath, args.base).href, sha256 };
 entry.listed = new Date().toISOString().slice(0, 10);
 
 console.error(`wrote ${relPath} (${zip.byteLength} bytes, sha256 ${sha256})`);
