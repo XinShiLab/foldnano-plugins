@@ -18,10 +18,10 @@ to the Hub.
 | `registry.json`                    | The listing, one entry per plugin                                |
 | `schema/registry-v1.schema.json`   | Format of `registry.json`                                        |
 | `schema/fplugin-v2.schema.json`    | Copy of Foldnano's plugin manifest schema, used by the checks    |
-| `plugins/<id>/`                    | Each plugin's zips by version, with its `LICENSE` and `NOTICE`   |
+| `plugins/<id>/`                    | Zips by version (never changed), plus `LICENSE` and `NOTICE`     |
 | `demos/`                           | Source of demo plugins (tagged `Demo`) maintained here           |
 | `scripts/pack.mjs`                 | Builds a plugin zip reproducibly and prints its listing entry    |
-| `scripts/check.mjs`                | Checks every entry against its zip (CI; weekly with `--live`)    |
+| `scripts/check.mjs`                | Checks entries, their zips and published versions (CI)           |
 
 ## Licenses
 

@@ -1,6 +1,6 @@
 // Checks every registry.json entry against the hosted zip it points to.
 //
-//   node scripts/check.mjs [--live]
+//   node scripts/check.mjs [--live] [--base <git-ref>]
 //
 // Per entry: the listing matches its schema; zip.url is this repo's Pages path for the entry's id
 // and version, and the file is in this checkout (so a PR can check a zip Pages doesn't serve yet);
@@ -8,7 +8,11 @@
 // fields equal the entry's, and an icon equal to iconSvg.
 // --live also downloads zip.url from Pages and checks it serves the same bytes with
 // Access-Control-Allow-Origin, which Foldnano needs to fetch it from the browser.
+// --base also fails if any commit since <git-ref> changed or deleted a file in a published version
+// folder (plugins/<id>/<version>/): released Foldnano builds pin each version's sha256, so only
+// new folders may be added.
 
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,6 +24,8 @@ import { DEFAULT_PAGES_BASE, ENTRY_MANIFEST_FIELDS, MAX_ZIP_BYTES } from './shar
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pagesBase = process.env.PAGES_BASE ?? DEFAULT_PAGES_BASE;
 const live = process.argv.includes('--live');
+const baseIndex = process.argv.indexOf('--base');
+const base = baseIndex === -1 ? null : process.argv[baseIndex + 1];
 const ORIGIN = 'https://foldnano.example';
 
 const readJson = (rel) => JSON.parse(readFileSync(join(root, rel), 'utf8'));
@@ -75,6 +81,24 @@ function checkManifest(entry, files) {
 	}
 }
 
+function checkPublishedUnchanged() {
+	let diff;
+	try {
+		diff = execFileSync(
+			'git',
+			['diff', '--name-status', '--no-renames', `${base}...HEAD`, '--', 'plugins/'],
+			{ cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+		);
+	} catch (e) {
+		return fail('--base', `cannot compare with ${base} (${e.stderr?.toString().trim() || e.message})`);
+	}
+	for (const line of diff.split('\n').filter(Boolean)) {
+		const [status, path] = line.split('\t');
+		if (status !== 'A' && /^plugins\/[^/]+\/[^/]+\//.test(path))
+			fail(path, `${status === 'D' ? 'deleted' : 'changed'} in a published version; add a new version instead`);
+	}
+}
+
 async function checkEntry(entry) {
 	const rel = hostedPath(entry);
 	if (entry.zip.url !== new URL(rel, pagesBase).href)
@@ -107,6 +131,7 @@ if (!validateRegistry(registry)) {
 	console.error(`error    registry.json fails its schema: ${ajv.errorsText(validateRegistry.errors)}`);
 	process.exit(1);
 }
+if (base) checkPublishedUnchanged();
 const seen = new Set();
 for (const entry of registry.plugins) {
 	if (seen.has(entry.id)) fail(entry.id, 'listed twice');
