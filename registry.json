@@ -4,7 +4,7 @@
 	"plugins": [
 		{
 			"id": "pyOrigamiBreak",
-			"version": "1.0.5",
+			"version": "1.0.6",
 			"name": "pyOrigamiBreak — Staple Auto-Break",
 			"description": "Optimises staple break positions using thermodynamic (dG) scoring.",
 			"tags": [
@@ -25,8 +25,8 @@
 			"repository": "https://github.com/xinshi-kul/pyOrigamiBreak_mini",
 			"upstream": "https://github.com/douglaslab/pyOrigamiBreak",
 			"zip": {
-				"url": "https://xinshilab.github.io/foldnano-plugins/plugins/pyOrigamiBreak/1.0.5/pyOrigamiBreak-1.0.5.zip",
-				"sha256": "75bbf92dba49d6296bcb7311459043f94570e1e6de11a2f66e3d61f820b67b2d"
+				"url": "https://xinshilab.github.io/foldnano-plugins/plugins/pyOrigamiBreak/1.0.6/pyOrigamiBreak-1.0.6.zip",
+				"sha256": "09cfa048ce2100e5775a7a94ad90f49af8ae1266170d9c9f6a5a118d2674cb2d"
 			},
 			"listed": "2026-11-02"
 		},
